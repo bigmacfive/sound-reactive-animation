@@ -1,21 +1,90 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
-const SoundActivatedChaoticAnimation = () => {
+const ChaoticAnimation = () => {
   const canvasRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const [analyzer, setAnalyzer] = useState(null);
   const [elements, setElements] = useState([]);
   const animationRef = useRef(null);
-  const [isAudioInitialized, setIsAudioInitialized] = useState(false);
 
   const randomInRange = useCallback((min, max) => Math.random() * (max - min) + min, []);
 
   const ChaoticElement = useCallback(function ChaoticElement(canvas) {
-    // ... (ChaoticElement 코드는 이전과 동일)
+    this.canvas = canvas;
+    this.reset = () => {
+      this.x = randomInRange(0, this.canvas.width);
+      this.y = randomInRange(0, this.canvas.height);
+      this.size = randomInRange(1, 100);
+      this.speedX = randomInRange(-5, 5);
+      this.speedY = randomInRange(-5, 5);
+      this.rotation = randomInRange(0, Math.PI * 2);
+      this.rotationSpeed = randomInRange(-0.1, 0.1);
+      this.hue = randomInRange(0, 360);
+      this.saturation = randomInRange(50, 100);
+      this.lightness = randomInRange(30, 70);
+      this.alpha = randomInRange(0.1, 0.9);
+      this.shape = Math.floor(randomInRange(0, 5));
+    };
+    this.reset();
+
+    this.update = () => {
+      this.x += this.speedX;
+      this.y += this.speedY;
+      this.rotation += this.rotationSpeed;
+      this.hue = (this.hue + 1) % 360;
+
+      if (this.x < 0 || this.x > this.canvas.width || this.y < 0 || this.y > this.canvas.height) {
+        this.reset();
+      }
+    };
+
+    this.draw = (ctx) => {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+      ctx.fillStyle = `hsla(${this.hue}, ${this.saturation}%, ${this.lightness}%, ${this.alpha})`;
+      ctx.beginPath();
+
+      switch(this.shape) {
+        case 0:
+          ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+          break;
+        case 1:
+          ctx.rect(-this.size / 2, -this.size / 2, this.size, this.size);
+          break;
+        case 2:
+          ctx.moveTo(0, -this.size / 2);
+          ctx.lineTo(this.size / 2, this.size / 2);
+          ctx.lineTo(-this.size / 2, this.size / 2);
+          break;
+        case 3:
+          for (let i = 0; i < 5; i++) {
+            ctx.lineTo(
+              Math.cos((i * 4 * Math.PI) / 5) * this.size / 2,
+              Math.sin((i * 4 * Math.PI) / 5) * this.size / 2
+            );
+          }
+          break;
+        case 4:
+          const sides = Math.floor(randomInRange(3, 8));
+          for (let i = 0; i < sides; i++) {
+            ctx.lineTo(
+              Math.cos((i * 2 * Math.PI) / sides) * this.size / 2,
+              Math.sin((i * 2 * Math.PI) / sides) * this.size / 2
+            );
+          }
+          break;
+        default:
+          ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+          break;
+      }
+
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
   }, [randomInRange]);
 
   const animate = useCallback(() => {
-    if (!canvasRef.current || !analyzer) return;
+    if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -23,50 +92,18 @@ const SoundActivatedChaoticAnimation = () => {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const dataArray = new Uint8Array(analyzer.frequencyBinCount);
-    analyzer.getByteFrequencyData(dataArray);
-    const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-    const speedMultiplier = average / 128;
+    elements.forEach(element => {
+      element.update();
+      element.draw(ctx);
+    });
 
-    console.log('Audio level:', average, 'Speed multiplier:', speedMultiplier);
-
-    if (speedMultiplier > 0.1) {
-      elements.forEach(element => {
-        element.update(speedMultiplier);
-        element.draw(ctx);
-      });
-
-      if (Math.random() < 0.05 * speedMultiplier) {
-        ctx.fillStyle = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-    } else {
-      ctx.fillStyle = 'white';
-      ctx.font = '20px Arial';
-      ctx.fillText('Speak or make noise to activate the animation', canvas.width / 2 - 150, canvas.height / 2);
+    if (Math.random() < 0.05) {
+      ctx.fillStyle = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     animationRef.current = requestAnimationFrame(animate);
-  }, [analyzer, elements]);
-
-  const initializeAudio = useCallback(async () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioContextRef.current = audioCtx;
-      const analyzerNode = audioCtx.createAnalyser();
-      analyzerNode.fftSize = 256;
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const sourceNode = audioCtx.createMediaStreamSource(stream);
-      sourceNode.connect(analyzerNode);
-
-      setAnalyzer(analyzerNode);
-      setIsAudioInitialized(true);
-      console.log('Audio initialized successfully');
-    } catch (error) {
-      console.error('Error initializing audio:', error);
-    }
-  }, []);
+  }, [elements]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -74,21 +111,16 @@ const SoundActivatedChaoticAnimation = () => {
     canvas.height = window.innerHeight;
 
     setElements(Array(100).fill().map(() => new ChaoticElement(canvas)));
-    initializeAudio();
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
     };
-  }, [ChaoticElement, initializeAudio]);
+  }, [ChaoticElement]);
 
   useEffect(() => {
-    if (analyzer && elements.length > 0 && isAudioInitialized) {
-      console.log('Starting animation');
+    if (elements.length > 0) {
       animate();
     }
     return () => {
@@ -96,7 +128,7 @@ const SoundActivatedChaoticAnimation = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [analyzer, elements, animate, isAudioInitialized]);
+  }, [elements, animate]);
 
   return (
     <div className="w-screen h-screen bg-black overflow-hidden">
@@ -105,4 +137,4 @@ const SoundActivatedChaoticAnimation = () => {
   );
 };
 
-export default SoundActivatedChaoticAnimation;
+export default ChaoticAnimation;
