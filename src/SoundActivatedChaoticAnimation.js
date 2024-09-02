@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 const SoundActivatedChaoticAnimation = () => {
   const canvasRef = useRef(null);
-  const [audioContext, setAudioContext] = useState(null);
+  const audioContextRef = useRef(null);
   const [analyzer, setAnalyzer] = useState(null);
   const [elements, setElements] = useState([]);
   const animationRef = useRef(null);
@@ -115,41 +115,40 @@ const SoundActivatedChaoticAnimation = () => {
     animationRef.current = requestAnimationFrame(animate);
   }, [analyzer, elements]);
 
+  const initializeAudio = useCallback(async () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioContextRef.current = audioCtx;
+      const analyzerNode = audioCtx.createAnalyser();
+      analyzerNode.fftSize = 256;
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const sourceNode = audioCtx.createMediaStreamSource(stream);
+      sourceNode.connect(analyzerNode);
+
+      setAnalyzer(analyzerNode);
+    } catch (error) {
+      console.error('Error initializing audio:', error);
+    }
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
     setElements(Array(100).fill().map(() => new ChaoticElement(canvas)));
-
-    const initializeAudio = async () => {
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const analyzerNode = audioCtx.createAnalyser();
-        analyzerNode.fftSize = 256;
-
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const sourceNode = audioCtx.createMediaStreamSource(stream);
-        sourceNode.connect(analyzerNode);
-
-        setAudioContext(audioCtx);
-        setAnalyzer(analyzerNode);
-      } catch (error) {
-        console.error('Error initializing audio:', error);
-      }
-    };
-
     initializeAudio();
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      if (audioContext) {
-        audioContext.close();
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
       }
     };
-  }, [ChaoticElement]);
+  }, [ChaoticElement, initializeAudio]);
 
   useEffect(() => {
     if (analyzer && elements.length > 0) {
