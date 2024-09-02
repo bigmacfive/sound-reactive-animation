@@ -4,6 +4,9 @@ const ChaoticAnimation = () => {
   const canvasRef = useRef(null);
   const [elements, setElements] = useState([]);
   const animationRef = useRef(null);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1);
+  const lastTouchTime = useRef(Date.now());
+  const touchCount = useRef(0);
 
   const randomInRange = useCallback((min, max) => Math.random() * (max - min) + min, []);
 
@@ -25,10 +28,10 @@ const ChaoticAnimation = () => {
     };
     this.reset();
 
-    this.update = () => {
-      this.x += this.speedX;
-      this.y += this.speedY;
-      this.rotation += this.rotationSpeed;
+    this.update = (speed) => {
+      this.x += this.speedX * speed;
+      this.y += this.speedY * speed;
+      this.rotation += this.rotationSpeed * speed;
       this.hue = (this.hue + 1) % 360;
 
       if (this.x < 0 || this.x > this.canvas.width || this.y < 0 || this.y > this.canvas.height) {
@@ -93,17 +96,47 @@ const ChaoticAnimation = () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     elements.forEach(element => {
-      element.update();
+      element.update(speedMultiplier);
       element.draw(ctx);
     });
 
-    if (Math.random() < 0.05) {
+    if (Math.random() < 0.05 * speedMultiplier) {
       ctx.fillStyle = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.8)`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     animationRef.current = requestAnimationFrame(animate);
-  }, [elements]);
+  }, [elements, speedMultiplier]);
+
+  const handleResize = useCallback(() => {
+    const canvas = canvasRef.current;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    setElements(prevElements => {
+      return prevElements.map(element => {
+        element.canvas = canvas;
+        return element;
+      });
+    });
+  }, []);
+
+  const handleTouch = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTouchTime.current < 1000) {
+      touchCount.current++;
+      setSpeedMultiplier(prev => Math.min(prev + 0.1, 5));
+    } else {
+      touchCount.current = 1;
+    }
+    lastTouchTime.current = now;
+
+    setTimeout(() => {
+      touchCount.current--;
+      if (touchCount.current === 0) {
+        setSpeedMultiplier(1);
+      }
+    }, 1000);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -112,12 +145,19 @@ const ChaoticAnimation = () => {
 
     setElements(Array(100).fill().map(() => new ChaoticElement(canvas)));
 
+    window.addEventListener('resize', handleResize);
+    canvas.addEventListener('click', handleTouch);
+    canvas.addEventListener('touchstart', handleTouch);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
+      canvas.removeEventListener('click', handleTouch);
+      canvas.removeEventListener('touchstart', handleTouch);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [ChaoticElement]);
+  }, [ChaoticElement, handleResize, handleTouch]);
 
   useEffect(() => {
     if (elements.length > 0) {
