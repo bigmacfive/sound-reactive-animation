@@ -4,6 +4,7 @@ const SoundActivatedChaoticAnimation = () => {
   const canvasRef = useRef(null);
   const [audioContext, setAudioContext] = useState(null);
   const [analyzer, setAnalyzer] = useState(null);
+  const [elements, setElements] = useState([]);
   const animationRef = useRef(null);
 
   const randomInRange = (min, max) => Math.random() * (max - min) + min;
@@ -115,14 +116,14 @@ const SoundActivatedChaoticAnimation = () => {
     }
 
     animationRef.current = requestAnimationFrame(animate);
-  }, [analyzer]);
+  }, [analyzer, elements]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const elements = Array(100).fill().map(() => new ChaoticElement(canvas));
+    setElements(Array(100).fill().map(() => new ChaoticElement(canvas)));
 
     const initializeAudio = async () => {
       try {
@@ -154,10 +155,10 @@ const SoundActivatedChaoticAnimation = () => {
   }, []);
 
   useEffect(() => {
-    if (analyzer) {
+    if (analyzer && elements.length > 0) {
       animate();
     }
-  }, [analyzer, animate]);
+  }, [analyzer, elements, animate]);
 
   return (
     <div className="w-screen h-screen bg-black overflow-hidden">
