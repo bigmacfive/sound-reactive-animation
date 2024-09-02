@@ -7,15 +7,11 @@ const SoundActivatedChaoticAnimation = () => {
   const [elements, setElements] = useState([]);
   const animationRef = useRef(null);
 
-  const randomInRange = (min, max) => Math.random() * (max - min) + min;
+  const randomInRange = useCallback((min, max) => Math.random() * (max - min) + min, []);
 
-  class ChaoticElement {
-    constructor(canvas) {
-      this.canvas = canvas;
-      this.reset();
-    }
-
-    reset() {
+  const ChaoticElement = useCallback(function ChaoticElement(canvas) {
+    this.canvas = canvas;
+    this.reset = () => {
       this.x = randomInRange(0, this.canvas.width);
       this.y = randomInRange(0, this.canvas.height);
       this.size = randomInRange(1, 100);
@@ -28,9 +24,10 @@ const SoundActivatedChaoticAnimation = () => {
       this.lightness = randomInRange(30, 70);
       this.alpha = randomInRange(0.1, 0.9);
       this.shape = Math.floor(randomInRange(0, 5));
-    }
+    };
+    this.reset();
 
-    update(speedMultiplier) {
+    this.update = (speedMultiplier) => {
       this.x += this.speedX * speedMultiplier;
       this.y += this.speedY * speedMultiplier;
       this.rotation += this.rotationSpeed * speedMultiplier;
@@ -40,9 +37,9 @@ const SoundActivatedChaoticAnimation = () => {
       if (this.x < 0 || this.x > this.canvas.width || this.y < 0 || this.y > this.canvas.height || this.size < 1) {
         this.reset();
       }
-    }
+    };
 
-    draw(ctx) {
+    this.draw = (ctx) => {
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.rotate(this.rotation);
@@ -86,8 +83,8 @@ const SoundActivatedChaoticAnimation = () => {
       ctx.closePath();
       ctx.fill();
       ctx.restore();
-    }
-  }
+    };
+  }, [randomInRange]);
 
   const animate = useCallback(() => {
     if (!canvasRef.current || !analyzer) return;
@@ -152,12 +149,17 @@ const SoundActivatedChaoticAnimation = () => {
         audioContext.close();
       }
     };
-  }, []);
+  }, [ChaoticElement]);
 
   useEffect(() => {
     if (analyzer && elements.length > 0) {
       animate();
     }
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
   }, [analyzer, elements, animate]);
 
   return (
