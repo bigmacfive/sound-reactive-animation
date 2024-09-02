@@ -115,6 +115,7 @@ const ChaoticAnimation = () => {
     setElements(prevElements => {
       return prevElements.map(element => {
         element.canvas = canvas;
+        element.reset(); // Reset elements to ensure they're within the new canvas size
         return element;
       });
     });
@@ -140,14 +141,23 @@ const ChaoticAnimation = () => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
 
+    resizeCanvas();
     setElements(Array(100).fill().map(() => new ChaoticElement(canvas)));
 
     window.addEventListener('resize', handleResize);
     canvas.addEventListener('click', handleTouch);
     canvas.addEventListener('touchstart', handleTouch);
+
+    // 초기 검은색 배경 그리기
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -171,7 +181,7 @@ const ChaoticAnimation = () => {
   }, [elements, animate]);
 
   return (
-    <div className="w-screen h-screen bg-black overflow-hidden">
+    <div className="fixed inset-0 w-full h-full bg-black overflow-hidden">
       <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );
