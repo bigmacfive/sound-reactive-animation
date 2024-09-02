@@ -1,15 +1,20 @@
 {
+    "version": 2,
     "builds": [
       {
         "src": "package.json",
-        "use": "@vercel/node",
-        "config": {
-          "buildCommand": "npm run build",
-          "outputDirectory": "build"
-        }
+        "use": "@vercel/static-build",
+        "config": { "distDir": "build" }
       }
     ],
-    "routes": [{ "src": "/(.*)", "dest": "/index.html" }],
+    "routes": [
+      { "handle": "filesystem" },
+      { "src": "/static/(.*)", "dest": "/static/$1" },
+      { "src": "/favicon.ico", "dest": "/favicon.ico" },
+      { "src": "/asset-manifest.json", "dest": "/asset-manifest.json" },
+      { "src": "/manifest.json", "dest": "/manifest.json" },
+      { "src": "/(.*)", "dest": "/index.html" }
+    ],
     "env": {
       "NODE_OPTIONS": "--openssl-legacy-provider"
     }
